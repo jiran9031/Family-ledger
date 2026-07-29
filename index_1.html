@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Family Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer onload="onGisLoaded()"></script>
+<style>
+  :root{
+    --paper:#F6F1E4;
+    --paper-shadow:#E8E0CC;
+    --ink:#2B2620;
+    --ink-soft:#5C5648;
+    --line:#C9BFA0;
+    --red:#B23A2E;
+    --red-bg:#F3E1DE;
+    --green:#3F5D42;
+    --green-bg:#E4EAE0;
+    --table:#DCD4C1;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--table);
+    background-image:
+      radial-gradient(circle at 20% 20%, rgba(0,0,0,0.03) 0, transparent 40%),
+      radial-gradient(circle at 80% 60%, rgba(0,0,0,0.03) 0, transparent 40%);
+    font-family:'Barlow Condensed', sans-serif;
+    color:var(--ink);
+    min-height:100vh;
+    padding:32px 16px 64px;
+  }
+  .wrap{
+    max-width:560px;
+    margin:0 auto;
+  }
+  .receipt{
+    background:var(--paper);
+    box-shadow:0 1px 0 rgba(0,0,0,0.05), 0 12px 30px rgba(0,0,0,0.12);
+    position:relative;
+    padding:32px 30px 20px;
+  }
+  .receipt::before, .receipt::after{
+    content:"";
+    position:absolute;
+    left:0; right:0;
+    height:10px;
+    background-image: radial-gradient(circle at 6px 6px, var(--table) 5px, transparent 5.5px);
+    background-size:14px 12px;
+    background-repeat:repeat-x;
+  }
+  .receipt::before{ top:-6px; }
+  .receipt::after{ bottom:-6px; }
+  h1{
+    font-family:'Barlow Condensed', sans-serif;
+    font-weight:700;
+    font-size:30px;
+    letter-spacing:0.5px;
+    text-align:center;
+    margin:0 0 2px;
+    text-transform:uppercase;
+  }
+  .tagline{
+    text-align:center;
+    font-size:13px;
+    color:var(--ink-soft);
+    margin:0 0 18px;
+    letter-spacing:0.5px;
+  }
+  .divider{
+    border:none;
+    border-top:2px dashed var(--line);
+    margin:16px 0;
+  }
+  .month-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:6px;
+  }
+  .month-row button{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--ink);
+    font-family:'Courier Prime', monospace;
+    font-size:16px;
+    width:32px;
+    height:32px;
+    cursor:pointer;
+  }
+  .month-row button:hover{ background:var(--paper-shadow); }
+  .month-label{
+    font-family:'Courier Prime', monospace;
+    font-weight:700;
+    font-size:15px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+  }
+  .totals{
+    text-align:center;
+    margin:6px 0 4px;
+  }
+  .totals .amt{
+    font-family:'Courier Prime', monospace;
+    font-size:34px;
+    font-weight:700;
+  }
+  .totals .lbl{
+    font-size:13px;
+    color:var(--ink-soft);
+    letter-spacing:1px;
+    text-transform:uppercase;
+  }
+
+  .section-label{
+    font-size:13px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin:4px 0 8px;
+  }
+
+  .cat-row{
+    display:flex;
+    align-items:baseline;
+    font-family:'Courier Prime', monospace;
+    font-size:14px;
+    margin-bottom:10px;
+    gap:6px;
+    cursor:pointer;
+  }
+  .cat-row .name{ white-space:nowrap; }
+  .cat-row .leader{
+    flex:1;
+    border-bottom:1px dotted var(--line);
+    position:relative;
+    top:-4px;
+  }
+  .cat-row .amt{ white-space:nowrap; font-weight:700; }
+  .cat-row .stamp{
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:1px;
+    padding:2px 5px;
+    border:1.5px solid var(--red);
+    color:var(--red);
+    transform:rotate(-6deg);
+    display:inline-block;
+    margin-left:6px;
+  }
+  .cat-bar-wrap{
+    height:5px;
+    background:var(--paper-shadow);
+    margin:-6px 0 12px;
+  }
+  .cat-bar{
+    height:100%;
+    background:var(--green);
+  }
+  .cat-bar.over{ background:var(--red); }
+
+  .entries{
+    margin-top:6px;
+  }
+  .entry{
+    display:flex;
+    align-items:flex-start;
+    gap:8px;
+    font-family:'Courier Prime', monospace;
+    font-size:13px;
+    padding:7px 0;
+    border-bottom:1px dotted var(--line);
+  }
+  .entry .who-dot{
+    width:8px; height:8px;
+    border-radius:50%;
+    margin-top:5px;
+    flex-shrink:0;
+  }
+  .entry .meta{ flex:1; min-width:0; }
+  .entry .desc{ font-weight:700; }
+  .entry .sub{ color:var(--ink-soft); font-size:11px; }
+  .entry .amt{ font-weight:700; white-space:nowrap; }
+  .entry .del{
+    background:none; border:none; color:var(--ink-soft);
+    cursor:pointer; font-size:15px; padding:0 2px; font-family:'Courier Prime',monospace;
+  }
+  .entry .del:hover{ color:var(--red); }
+  .empty{
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:13px;
+    padding:20px 0;
+  }
+
+  form{
+    margin-top:4px;
+  }
+  .form-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  .field{ display:flex; flex-direction:column; gap:3px; }
+  .field.full{ grid-column:1 / -1; }
+  label{
+    font-size:11px;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+  }
+  input, select{
+    font-family:'Courier Prime', monospace;
+    font-size:14px;
+    padding:7px 8px;
+    border:1px solid var(--line);
+    background:#fffdf8;
+    color:var(--ink);
+  }
+  input:focus, select:focus{
+    outline:none;
+    border-color:var(--ink);
+  }
+  .submit-btn{
+    width:100%;
+    padding:10px;
+    background:var(--ink);
+    color:var(--paper);
+    border:none;
+    font-family:'Barlow Condensed', sans-serif;
+    font-weight:600;
+    font-size:15px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    cursor:pointer;
+  }
+  .submit-btn:hover{ background:#453f34; }
+  .submit-btn:active{ transform:scale(0.99); }
+
+  .budget-toggle{
+    text-align:center;
+    font-size:12px;
+    color:var(--ink-soft);
+    text-decoration:underline;
+    cursor:pointer;
+    margin:10px 0 4px;
+  }
+  .budget-panel{
+    display:none;
+    background:var(--paper-shadow);
+    padding:12px;
+    margin:6px 0 14px;
+  }
+  .budget-panel.open{ display:block; }
+  .budget-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:6px;
+    font-size:13px;
+  }
+  .budget-row input{
+    width:80px;
+    text-align:right;
+    padding:4px 6px;
+    font-size:13px;
+  }
+  .manage-panel{
+    display:none;
+    background:var(--paper-shadow);
+    padding:12px;
+    margin:6px 0 14px;
+  }
+  .manage-panel.open{ display:block; }
+  .chip-list{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-bottom:10px;
+  }
+  .chip{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    background:#fffdf8;
+    border:1px solid var(--line);
+    padding:4px 6px 4px 10px;
+    font-size:13px;
+    font-family:'Courier Prime', monospace;
+  }
+  .chip button{
+    background:none;
+    border:none;
+    color:var(--ink-soft);
+    cursor:pointer;
+    font-size:14px;
+    line-height:1;
+    padding:0;
+  }
+  .chip button:hover{ color:var(--red); }
+  .add-row{
+    display:flex;
+    gap:6px;
+  }
+  .add-row input{
+    flex:1;
+  }
+  .add-row button{
+    background:var(--ink);
+    color:var(--paper);
+    border:none;
+    padding:0 14px;
+    font-family:'Barlow Condensed', sans-serif;
+    font-weight:600;
+    font-size:13px;
+    text-transform:uppercase;
+    cursor:pointer;
+  }
+  .hint{
+    font-size:12px;
+    color:var(--ink-soft);
+    margin:0 0 8px;
+  }
+
+  .footer-note{
+    text-align:center;
+    font-size:11px;
+    color:var(--ink-soft);
+    margin-top:18px;
+    letter-spacing:0.5px;
+  }
+  .status{
+    text-align:center;
+    font-size:12px;
+    color:var(--ink-soft);
+    min-height:16px;
+    margin-top:8px;
+  }
+  @media (max-width:480px){
+    .form-grid{ grid-template-columns:1fr; }
+    .receipt{ padding:24px 18px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="receipt" id="signinScreen" style="display:flex; flex-direction:column; align-items:center; gap:14px; padding:48px 30px; text-align:center;">
+    <h1 style="margin-bottom:0;">The Family Ledger</h1>
+    <p class="tagline" style="margin-bottom:8px;">every dollar, itemized</p>
+    <p style="font-size:14px; color:var(--ink-soft); max-width:340px;">
+      Sign in with Google to load your family's ledger. It's saved to your
+      personal Google Drive, so it stays in sync across every device you sign in on.
+    </p>
+    <button id="signInBtn" class="submit-btn" style="width:auto; padding:12px 28px;">Sign in with Google</button>
+    <p class="status" id="signinStatus" style="margin-top:4px;"></p>
+  </div>
+
+  <div class="receipt" id="appScreen" style="display:none;">
+    <div class="month-row" style="margin-bottom:2px;">
+      <span style="font-size:11px; color:var(--ink-soft); font-family:'Courier Prime',monospace;" id="accountEmail"></span>
+      <button id="signOutBtn" style="border:none; background:none; width:auto; height:auto; font-family:'Barlow Condensed',sans-serif; font-size:12px; text-decoration:underline; color:var(--ink-soft); cursor:pointer;">sign out</button>
+    </div>
+    <h1>The Family Ledger</h1>
+    <p class="tagline">every dollar, itemized</p>
+
+    <div class="month-row">
+      <button id="prevMonth" aria-label="Previous month">&lt;</button>
+      <span class="month-label" id="monthLabel">—</span>
+      <button id="nextMonth" aria-label="Next month">&gt;</button>
+    </div>
+
+    <div class="totals">
+      <div class="amt" id="totalAmt">$0.00</div>
+      <div class="lbl">spent this month</div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="section-label">By category</div>
+    <div id="catList"></div>
+
+    <div class="budget-toggle" id="budgetToggle">set monthly budgets</div>
+    <div class="budget-panel" id="budgetPanel"></div>
+
+    <div class="budget-toggle" id="categoryToggle">edit categories</div>
+    <div class="manage-panel" id="categoryPanel">
+      <div class="chip-list" id="categoryChips"></div>
+      <div class="add-row">
+        <input type="text" id="newCategory" placeholder="New category name">
+        <button type="button" id="addCategoryBtn">Add</button>
+      </div>
+    </div>
+
+    <div class="budget-toggle" id="accountToggle">edit accounts</div>
+    <div class="manage-panel" id="accountPanel">
+      <p class="hint">Accounts are who's spending — e.g. Mom, Dad, Household card.</p>
+      <div class="chip-list" id="accountChips"></div>
+      <div class="add-row">
+        <input type="text" id="newAccount" placeholder="New account name">
+        <button type="button" id="addAccountBtn">Add</button>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="section-label">Add an item</div>
+    <form id="entryForm">
+      <div class="form-grid">
+        <div class="field">
+          <label for="amount">Amount</label>
+          <input type="number" id="amount" step="0.01" min="0" placeholder="0.00" required>
+        </div>
+        <div class="field">
+          <label for="category">Category</label>
+          <select id="category"></select>
+        </div>
+        <div class="field">
+          <label for="account">Account</label>
+          <select id="account" required></select>
+        </div>
+        <div class="field">
+          <label for="date">Date</label>
+          <input type="date" id="date" required>
+        </div>
+        <div class="field full">
+          <label for="desc">Description</label>
+          <input type="text" id="desc" placeholder="e.g. Weekly groceries" required>
+        </div>
+      </div>
+      <button type="submit" class="submit-btn">Add to ledger</button>
+    </form>
+    <div class="status" id="status"></div>
+
+    <hr class="divider">
+
+    <div class="section-label">Recent items</div>
+    <div class="entries" id="entryList"></div>
+
+    <p class="footer-note">saved in this browser only</p>
+  </div>
+</div>
+
+<script>
+const DEFAULT_CATEGORIES = ["Groceries","Dining out","Utilities","Transport","Kids","Entertainment","Home","Other"];
+const DEFAULT_ACCOUNTS = ["Household"];
+const MEMBER_COLORS = ['#B23A2E','#3F5D42','#5C5648','#8A6D3B','#3D5A80','#7A4B6B'];
+
+let entries = [];
+let budgets = {};
+let categories = [];
+let accounts = [];
+let currentMonth = new Date();
+currentMonth.setDate(1);
+
+function monthKey(d){
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+function monthLabel(d){
+  return d.toLocaleDateString('en-US',{month:'long', year:'numeric'});
+}
+function fmt(n){
+  return '$' + n.toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function colorForName(name){
+  let hash = 0;
+  for(let i=0;i<name.length;i++){ hash = name.charCodeAt(i) + ((hash<<5)-hash); }
+  return MEMBER_COLORS[Math.abs(hash) % MEMBER_COLORS.length];
+}
+
+// ---- Google sign-in + Drive sync ----
+// Data is stored as one JSON file in your personal Google Drive's hidden
+// "app data" folder (not visible in your normal Drive file list — it's
+// private storage just for this app). Signing in on any device loads the
+// same file, so all your devices stay in sync.
+//
+// SETUP REQUIRED: replace CLIENT_ID below with your own Google OAuth
+// Client ID. See README.md for the exact steps.
+const CLIENT_ID = 'YOUR_CLIENT_ID.apps.googleusercontent.com';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.email';
+const DRIVE_FILE_NAME = 'family-ledger-data.json';
+
+let tokenClient = null;
+let accessToken = null;
+let driveFileId = null;
+let saveTimer = null;
+
+function onGisLoaded(){
+  if(CLIENT_ID.indexOf('YOUR_CLIENT_ID') === 0){
+    setStatus('Set up your Google Client ID first — see README.md.');
+    return;
+  }
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: DRIVE_SCOPE,
+    callback: handleTokenResponse
+  });
+  // Try a silent sign-in so returning visitors don't have to click again.
+  tokenClient.requestAccessToken({ prompt: '' });
+}
+
+async function handleTokenResponse(resp){
+  if(resp.error){
+    showSignedOut();
+    return;
+  }
+  accessToken = resp.access_token;
+  await afterSignIn();
+}
+
+async function afterSignIn(){
+  try{
+    const who = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: 'Bearer ' + accessToken }
+    }).then(r=>r.json());
+    document.getElementById('accountEmail').textContent = who.email || 'Signed in';
+  }catch(e){}
+  await loadFromDrive();
+  showSignedIn();
+  render();
+}
+
+function showSignedIn(){
+  document.getElementById('signinScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+}
+function showSignedOut(){
+  document.getElementById('signinScreen').style.display = 'flex';
+  document.getElementById('appScreen').style.display = 'none';
+}
+
+async function driveFetch(url, options={}){
+  options.headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + accessToken });
+  let res = await fetch(url, options);
+  if(res.status === 401){
+    await new Promise((resolve)=>{
+      tokenClient.callback = (resp)=>{ if(!resp.error) accessToken = resp.access_token; resolve(); };
+      tokenClient.requestAccessToken({ prompt: '' });
+    });
+    options.headers.Authorization = 'Bearer ' + accessToken;
+    res = await fetch(url, options);
+  }
+  return res;
+}
+
+function bundleState(){
+  return JSON.stringify({ entries, budgets, categories, accounts });
+}
+
+async function driveFindFile(){
+  const q = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,name)`);
+  const data = await res.json();
+  return (data.files && data.files[0]) || null;
+}
+
+async function driveCreateFile(content){
+  const boundary = 'ledgerboundary';
+  const metadata = { name: DRIVE_FILE_NAME, parents: ['appDataFolder'] };
+  const body =
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
+    `--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n` +
+    `--${boundary}--`;
+  const res = await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+    method: 'POST',
+    headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body
+  });
+  const data = await res.json();
+  return data.id;
+}
+
+async function loadFromDrive(){
+  const file = await driveFindFile();
+  if(!file){
+    entries = []; budgets = {}; categories = [...DEFAULT_CATEGORIES]; accounts = [...DEFAULT_ACCOUNTS];
+    driveFileId = await driveCreateFile(bundleState());
+    return;
+  }
+  driveFileId = file.id;
+  try{
+    const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`);
+    const data = await res.json();
+    entries = data.entries || [];
+    budgets = data.budgets || {};
+    categories = (data.categories && data.categories.length) ? data.categories : [...DEFAULT_CATEGORIES];
+    accounts = (data.accounts && data.accounts.length) ? data.accounts : [...DEFAULT_ACCOUNTS];
+  }catch(e){
+    entries = []; budgets = {}; categories = [...DEFAULT_CATEGORIES]; accounts = [...DEFAULT_ACCOUNTS];
+  }
+}
+
+async function persist(){
+  setStatus('Syncing…');
+  try{
+    if(!driveFileId){
+      driveFileId = await driveCreateFile(bundleState());
+    }else{
+      await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: bundleState()
+      });
+    }
+    setStatus('Synced to Drive ✓');
+  }catch(e){
+    setStatus('Sync failed — check your connection and try again.');
+  }
+}
+
+function queueSave(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(persist, 500);
+}
+
+function setStatus(msg){
+  const el = document.getElementById('status');
+  const el2 = document.getElementById('signinStatus');
+  el.textContent = msg;
+  if(el2) el2.textContent = msg;
+  if(msg) setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; if(el2 && el2.textContent===msg) el2.textContent=''; }, 2500);
+}
+
+function populateCategorySelect(){
+  const sel = document.getElementById('category');
+  const prev = sel.value;
+  sel.innerHTML = categories.map(c=>`<option value="${c}">${escapeHtml(c)}</option>`).join('');
+  if(categories.includes(prev)) sel.value = prev;
+}
+
+function populateAccountSelect(){
+  const sel = document.getElementById('account');
+  const prev = sel.value;
+  if(accounts.length === 0){
+    sel.innerHTML = '<option value="">Add an account first</option>';
+    return;
+  }
+  sel.innerHTML = accounts.map(a=>`<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+  if(accounts.includes(prev)) sel.value = prev;
+}
+
+function currentMonthEntries(){
+  const key = monthKey(currentMonth);
+  return entries.filter(e => e.date.slice(0,7) === key);
+}
+
+function render(){
+  document.getElementById('monthLabel').textContent = monthLabel(currentMonth);
+  const monthEntries = currentMonthEntries();
+  const total = monthEntries.reduce((s,e)=>s+e.amount,0);
+  document.getElementById('totalAmt').textContent = fmt(total);
+
+  const byCat = {};
+  categories.forEach(c=>byCat[c]=0);
+  monthEntries.forEach(e=>{ byCat[e.category] = (byCat[e.category]||0) + e.amount; });
+
+  const catList = document.getElementById('catList');
+  catList.innerHTML = categories.map(c=>{
+    const spent = byCat[c] || 0;
+    const budget = budgets[c] || 0;
+    const over = budget > 0 && spent > budget;
+    const pct = budget > 0 ? Math.min(100, (spent/budget)*100) : (spent>0?100:0);
+    return `
+      <div class="cat-row">
+        <span class="name">${c}</span>
+        <span class="leader"></span>
+        <span class="amt">${fmt(spent)}${budget>0 ? ' / ' + fmt(budget) : ''}</span>
+        ${over ? '<span class="stamp">over</span>' : ''}
+      </div>
+      <div class="cat-bar-wrap"><div class="cat-bar ${over?'over':''}" style="width:${pct}%"></div></div>
+    `;
+  }).join('');
+
+  renderBudgetPanel();
+  renderCategoryPanel();
+  renderAccountPanel();
+  populateCategorySelect();
+  populateAccountSelect();
+  renderEntries(monthEntries);
+}
+
+function renderBudgetPanel(){
+  const panel = document.getElementById('budgetPanel');
+  panel.innerHTML = categories.map(c=>`
+    <div class="budget-row">
+      <span>${c}</span>
+      <input type="number" min="0" step="1" data-cat="${c}" class="budget-input" value="${budgets[c]||''}" placeholder="no limit">
+    </div>
+  `).join('');
+  panel.querySelectorAll('.budget-input').forEach(inp=>{
+    inp.addEventListener('change', async ()=>{
+      const cat = inp.dataset.cat;
+      const val = parseFloat(inp.value);
+      if(!isNaN(val) && val > 0){ budgets[cat] = val; } else { delete budgets[cat]; }
+      queueSave();
+      render();
+    });
+  });
+}
+
+function renderCategoryPanel(){
+  const wrap = document.getElementById('categoryChips');
+  wrap.innerHTML = categories.map(c=>`
+    <span class="chip">${escapeHtml(c)}<button data-cat="${escapeHtml(c)}" aria-label="Remove ${escapeHtml(c)}">&times;</button></span>
+  `).join('') || '<span class="hint">No categories yet.</span>';
+  wrap.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const cat = btn.dataset.cat;
+      const inUse = entries.some(e=>e.category === cat);
+      if(inUse && !confirm(`"${cat}" is used on existing entries. Remove it anyway?`)) return;
+      categories = categories.filter(c=>c!==cat);
+      delete budgets[cat];
+      queueSave();
+      queueSave();
+      render();
+    });
+  });
+}
+
+function renderAccountPanel(){
+  const wrap = document.getElementById('accountChips');
+  wrap.innerHTML = accounts.map(a=>`
+    <span class="chip">${escapeHtml(a)}<button data-acc="${escapeHtml(a)}" aria-label="Remove ${escapeHtml(a)}">&times;</button></span>
+  `).join('') || '<span class="hint">No accounts yet — add one below.</span>';
+  wrap.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const acc = btn.dataset.acc;
+      const inUse = entries.some(e=>e.account === acc);
+      if(inUse && !confirm(`"${acc}" is used on existing entries. Remove it anyway?`)) return;
+      accounts = accounts.filter(a=>a!==acc);
+      queueSave();
+      render();
+    });
+  });
+}
+
+function renderEntries(monthEntries){
+  const list = document.getElementById('entryList');
+  if(monthEntries.length === 0){
+    list.innerHTML = '<div class="empty">nothing logged this month yet</div>';
+    return;
+  }
+  const sorted = [...monthEntries].sort((a,b)=> b.date.localeCompare(a.date) || b.id - a.id);
+  list.innerHTML = sorted.map(e=>`
+    <div class="entry">
+      <span class="who-dot" style="background:${colorForName(e.account)}"></span>
+      <div class="meta">
+        <div class="desc">${escapeHtml(e.desc)}</div>
+        <div class="sub">${escapeHtml(e.category)} · ${escapeHtml(e.account)} · ${formatDate(e.date)}</div>
+      </div>
+      <span class="amt">${fmt(e.amount)}</span>
+      <button class="del" data-id="${e.id}" aria-label="Delete entry">&times;</button>
+    </div>
+  `).join('');
+  list.querySelectorAll('.del').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = Number(btn.dataset.id);
+      entries = entries.filter(e=>e.id !== id);
+      queueSave();
+      render();
+    });
+  });
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+function formatDate(iso){
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US',{month:'short', day:'numeric'});
+}
+
+document.getElementById('entryForm').addEventListener('submit', async (ev)=>{
+  ev.preventDefault();
+  const amount = parseFloat(document.getElementById('amount').value);
+  const category = document.getElementById('category').value;
+  const account = document.getElementById('account').value;
+  const date = document.getElementById('date').value;
+  const desc = document.getElementById('desc').value.trim();
+  if(!amount || amount <= 0 || !account || !date || !desc){
+    setStatus(accounts.length === 0 ? 'Add an account first.' : 'Fill in every field first.');
+    return;
+  }
+  entries.push({ id: Date.now(), amount, category, account, date, desc });
+  queueSave();
+  document.getElementById('entryForm').reset();
+  document.getElementById('date').value = new Date().toISOString().slice(0,10);
+  setStatus('Added.');
+  render();
+});
+
+document.getElementById('prevMonth').addEventListener('click', ()=>{
+  currentMonth.setMonth(currentMonth.getMonth()-1);
+  render();
+});
+document.getElementById('nextMonth').addEventListener('click', ()=>{
+  currentMonth.setMonth(currentMonth.getMonth()+1);
+  render();
+});
+document.getElementById('budgetToggle').addEventListener('click', ()=>{
+  document.getElementById('budgetPanel').classList.toggle('open');
+});
+document.getElementById('categoryToggle').addEventListener('click', ()=>{
+  document.getElementById('categoryPanel').classList.toggle('open');
+});
+document.getElementById('accountToggle').addEventListener('click', ()=>{
+  document.getElementById('accountPanel').classList.toggle('open');
+});
+
+document.getElementById('addCategoryBtn').addEventListener('click', async ()=>{
+  const inp = document.getElementById('newCategory');
+  const name = inp.value.trim();
+  if(!name) return;
+  if(categories.some(c=>c.toLowerCase() === name.toLowerCase())){
+    setStatus('That category already exists.');
+    return;
+  }
+  categories.push(name);
+  queueSave();
+  inp.value = '';
+  render();
+});
+document.getElementById('addAccountBtn').addEventListener('click', async ()=>{
+  const inp = document.getElementById('newAccount');
+  const name = inp.value.trim();
+  if(!name) return;
+  if(accounts.some(a=>a.toLowerCase() === name.toLowerCase())){
+    setStatus('That account already exists.');
+    return;
+  }
+  accounts.push(name);
+  queueSave();
+  inp.value = '';
+  render();
+});
+
+document.getElementById('signInBtn').addEventListener('click', ()=>{
+  if(!tokenClient){ setStatus('Still loading Google sign-in — try again in a moment.'); return; }
+  tokenClient.requestAccessToken({ prompt: 'consent' });
+});
+document.getElementById('signOutBtn').addEventListener('click', ()=>{
+  if(accessToken){ google.accounts.oauth2.revoke(accessToken, ()=>{}); }
+  accessToken = null;
+  driveFileId = null;
+  showSignedOut();
+});
+
+(function init(){
+  document.getElementById('date').value = new Date().toISOString().slice(0,10);
+  showSignedOut();
+})();
+</script>
+</body>
+</html>
